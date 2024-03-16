@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bi-Directional Spin</title>
+    <style>
+        body, html { height: 100%; margin: 0; overflow: hidden; }
+        canvas { display: block; background: #000; }
+        #lineSlider { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); }
+    </style>
+</head>
+<body>
+<div id="sliderContainer">
+    <input type="range" id="lineSlider" min="2" max="20" value="10">
+</div>
+<canvas id="lineCanvas"></canvas>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const canvas = document.getElementById('lineCanvas');
+    const ctx = canvas.getContext('2d');
+    const slider = document.getElementById('lineSlider');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let lines = [];
+    let path = [];
+
+    function calculateTotalLength() {
+        return lines.reduce((total, line) => total + line.length, 0);
+    }
+
+    function addLine() {
+        const minLength = 20;
+        const maxLength = 100; // This might be adjusted dynamically based on remaining allowed length
+        const maxTotalLength = canvas.height / 2; // Maximum combined length of lines
+        let remainingLength = maxTotalLength - calculateTotalLength(); // Calculate remaining allowed length
+        
+        // If there's not enough room for even the minimum length, don't add a new line
+        if (remainingLength < minLength) {
+            return;
+        }
+
+        // Adjust maxLength based on the remaining length, ensuring it's at least as long as minLength
+        const adjustedMaxLength = remainingLength < maxLength ? remainingLength : maxLength;
+        const length = Math.random() * (adjustedMaxLength - minLength) + minLength;
+        const speed = (Math.random() * 0.3 + 0.01) * (Math.random() < 0.5 ? 1 : -1);
+
+        if (lines.length > 0) {
+            const lastLine = lines[lines.length - 1];
+            lines.push({ length, angle: lastLine.angle, speed });
+        } else {
+            lines.push({ length, angle: 0, speed }); // Initial line
+        }
+    }
+
+    // Initial lines based on slider's current value
+    for (let i = 0; i < parseInt(slider.value); i++) {
+        addLine();
+    }
+
+    slider.oninput = function() {
+        const targetCount = parseInt(this.value);
+        const currentCount = lines.length;
+        if (targetCount > currentCount) {
+            for (let i = currentCount; i < targetCount; i++) {
+                addLine();
+            }
+        } else {
+            lines = lines.slice(0, targetCount);
+        }
+        path = []; // Reset the path when lines change
+    };
+
+    function drawLinesAndPath() {
+        let x = canvas.width / 2;
+        let y = canvas.height / 2;
+
+        // Draw lines
+        lines.forEach((line, index) => {
+            line.angle += line.speed;
+
+            const xEnd = x + line.length * Math.cos(line.angle);
+            const yEnd = y + line.length * Math.sin(line.angle);
+
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(xEnd, yEnd);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+            ctx.stroke();
+
+            x = xEnd;
+            y = yEnd;
+
+            if (index === lines.length - 1) {
+                path.push({ x: xEnd, y: yEnd, time: Date.now() });
+            }
+        });
+
+        // Remove old points
+        const tenSecondsAgo = Date.now() - 10000;
+        path = path.filter(p => p.time > tenSecondsAgo);
+
+        // Draw path
+        if (path.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            ctx.strokeStyle = '#FF0000';
+            ctx.stroke();
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawLinesAndPath();
+        requestAnimationFrame(draw);
+    }
+
+    draw();
+
+    window.addEventListener('resize', function() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        // Recalculate and adjust lines to fit the new canvas size
+        lines = [];
+        for (let i = 0; i < parseInt(slider.value); i++) {
+            addLine();
+        }
+        path = []; // Reset path on resize
+    });
+});
+
+
+</script>
+</body>
+</html>
